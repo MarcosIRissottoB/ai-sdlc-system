@@ -1,0 +1,225 @@
+@baseUrl = http://localhost:3000
+
+# ─────────────────────────────────────────────────
+# AI SDLC System — REST Client
+# ─────────────────────────────────────────────────
+
+
+###
+# @name healthCheck
+# GET /health — Estado de PostgreSQL + ChromaDB
+GET {{baseUrl}}/health
+
+
+###
+# ─────────────────────────────────────────────────
+# AI ARCHITECT — Pipeline RAG completo
+# ─────────────────────────────────────────────────
+
+###
+# @name queryMinimal
+# POST /ai-architect/query — Query básico
+POST {{baseUrl}}/ai-architect/query
+Content-Type: application/json
+
+{
+  "query": "¿Qué estrategia de chunking es mejor para documentos técnicos largos?"
+}
+
+###
+# @name queryFull
+# POST /ai-architect/query — Query con todas las opciones (hybrid + multi-query + reranking)
+POST {{baseUrl}}/ai-architect/query
+Content-Type: application/json
+
+{
+  "query": "¿Cuándo usar pgvector vs ChromaDB como vector store?",
+  "topK": 8,
+  "scoreThreshold": 0.65,
+  "useHybrid": true,
+  "useMultiQuery": true,
+  "useReranking": true,
+  "compressContext": false,
+  "domain": "architecture"
+}
+
+###
+# @name queryWithCompression
+# POST /ai-architect/query — Con compresión de contexto (reduce tokens)
+POST {{baseUrl}}/ai-architect/query
+Content-Type: application/json
+
+{
+  "query": "¿Cómo implementar un sistema multi-agente con LangGraph?",
+  "topK": 10,
+  "useHybrid": true,
+  "useMultiQuery": true,
+  "useReranking": true,
+  "compressContext": true
+}
+
+
+###
+# ─────────────────────────────────────────────────
+# AGENT — Conversacional con tools + memoria
+# ─────────────────────────────────────────────────
+
+###
+# @name agentNewSession
+# POST /agent/chat — Nueva sesión
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+
+{
+  "message": "¿Qué arquitectura usarías para un sistema RAG con 1M de documentos?"
+}
+
+###
+# @name agentContinueSession
+# POST /agent/chat — Continuar conversación (reemplazar sessionId por el recibido arriba)
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+
+{
+  "message": "¿Y cómo manejarías el reranking en ese escenario?",
+  "sessionId": "clx1234567890"
+}
+
+###
+# @name agentWithDomain
+# POST /agent/chat — Con dominio específico
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+
+{
+  "message": "¿Cuáles son las mejores prácticas para embeddings de código fuente?",
+  "domain": "embeddings"
+}
+
+
+###
+# ─────────────────────────────────────────────────
+# INGESTION — Carga e indexación de documentos
+# ─────────────────────────────────────────────────
+
+###
+# @name ingestTextSimple
+# POST /ingestion/text — Texto plano
+POST {{baseUrl}}/ingestion/text
+Content-Type: application/json
+
+{
+  "text": "RAG systems benefit from smaller, focused chunks of 256-512 tokens. Larger chunks increase noise during retrieval and reduce precision. Overlap of 10-15% between chunks helps preserve context at boundaries.",
+  "title": "RAG Best Practices",
+  "source": "internal-docs"
+}
+
+###
+# @name ingestTextMarkdown
+# POST /ingestion/text — Markdown con chunking personalizado
+POST {{baseUrl}}/ingestion/text
+Content-Type: application/json
+
+{
+  "text": "# Vector Databases\n\n## ChromaDB\nChromaDB is an open-source embedding database designed for AI applications. It supports HNSW indexing and achieves high recall at scale.\n\n## pgvector\npgvector is a PostgreSQL extension that adds vector similarity search. Best for teams already using PostgreSQL who want to avoid a separate vector DB.\n\n## Comparison\n- ChromaDB: optimized for embeddings, easy setup, Python-first\n- pgvector: SQL-native, transactional, no extra infra needed",
+  "title": "Vector Databases Comparison",
+  "source": "https://docs.trychroma.com",
+  "contentType": "text/markdown",
+  "chunkSize": 800,
+  "chunkOverlap": 150
+}
+
+###
+# @name ingestUrl
+# POST /ingestion/url — Ingestar desde URL
+POST {{baseUrl}}/ingestion/url
+Content-Type: application/json
+
+{
+  "url": "https://docs.trychroma.com/guides",
+  "title": "ChromaDB Official Docs"
+}
+
+###
+# @name ingestUrlMinimal
+# POST /ingestion/url — Solo URL (título se infiere del documento)
+POST {{baseUrl}}/ingestion/url
+Content-Type: application/json
+
+{
+  "url": "https://python.langchain.com/docs/modules/data_connection/retrievers/"
+}
+
+###
+# @name ingestRawLecture
+# POST /ingestion/raw — Pegar texto de una lectura/clase directamente (sin JSON escaping)
+# Ideal para copiar contenido largo desde PDFs, slides, documentos
+# Query params: title, source, contentType, chunkSize, chunkOverlap, domain, force
+POST {{baseUrl}}/ingestion/raw?title=AI Agents - Reasoning y Tool Use&source=lecture-ai-agents-reasoning&contentType=text/markdown&domain=ai-agents
+Content-Type: text/plain
+
+# Introducción
+Imagina que debes automatizar un proceso complejo: encontrar el tipo de cambio actual, recopilar cifras de ventas en vivo...
+
+Los AI Agents representan un salto evolutivo. En lugar de tratar al LLM como una simple caja negra de texto, lo utilizamos como el motor de razonamiento de un workflow más amplio.
+
+## Agent Reasoning
+Cómo descomponer problemas complejos en múltiples pasos.
+
+## Tool Use
+La capacidad de interactuar con recursos externos (calculadoras, APIs, bases de datos).
+
+## The ReAct Framework
+Un patrón práctico para intercalar pensamientos (Think) con acciones (Act).
+
+(Pegar aquí el contenido completo de la lectura)
+
+
+###
+# @name ingestRawLectureWithForce
+# POST /ingestion/raw — Re-ingestar una lectura ya existente (force=true reemplaza la anterior)
+POST {{baseUrl}}/ingestion/raw?title=AI Agents - Reasoning y Tool Use&source=lecture-ai-agents-reasoning&contentType=text/markdown&domain=ai-agents&force=true
+Content-Type: text/plain
+
+(Pegar aquí el contenido actualizado — force=true borra la versión anterior y la reemplaza)
+
+
+###
+# @name ingestTextWithDomain
+# POST /ingestion/text — Texto con dominio específico (JSON, útil para textos cortos)
+POST {{baseUrl}}/ingestion/text
+Content-Type: application/json
+
+{
+  "text": "El contenido de la lectura va aquí...",
+  "title": "Nombre de la Lectura",
+  "source": "lecture-nombre-unico",
+  "contentType": "text/markdown",
+  "domain": "ai-agents",
+  "chunkSize": 1000,
+  "chunkOverlap": 200
+}
+
+
+###
+# @name listDocuments
+# GET /ingestion/documents — Listar todos los documentos ingestados
+GET {{baseUrl}}/ingestion/documents
+
+
+###
+# @name listDocumentsByDomain
+# GET /ingestion/documents?domain= — Filtrar por dominio
+GET {{baseUrl}}/ingestion/documents?domain=ai-agents
+
+
+###
+# @name deleteDocument
+# DELETE /ingestion/documents/:id — Eliminar documento + chunks (reemplazar con ID real)
+DELETE {{baseUrl}}/ingestion/documents/DOCUMENT_ID_HERE
+
+
+###
+# @name ingestionStats
+# GET /ingestion/stats — Total de vectores en ChromaDB
+GET {{baseUrl}}/ingestion/stats

@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  title       String
+  source      String   @unique
+  contentType String   @map("content_type")
+  rawContent  String   @map("raw_content") @db.Text
+  domain      String   @default("general")
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  chunks      Chunk[]
+
+  @@index([domain])
+  @@map("documents")
+}
+
+model Chunk {
+  id         String   @id @default(cuid())
+  documentId String   @map("document_id")
+  content    String   @db.Text
+  chunkIndex Int      @map("chunk_index")
+  tokenCount Int      @map("token_count")
+  vectorId   String?  @map("vector_id")
+  metadata   Json     @default("{}")
+
+  // Enrichment fields
+  summary    String?  @db.Text
+  keywords   String[] @default([])
+  level      String?
+  chunkType  String?  @map("chunk_type")
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("chunks")
+}
+
+model QueryLog {
+  id            String   @id @default(cuid())
+  query         String   @db.Text
+  retrievedDocs Json     @map("retrieved_docs")
+  decision      String   @db.Text
+  reasoning     String   @db.Text
+  tradeoffs     Json
+  examples      Json
+  citations     Json
+  latencyMs     Int      @map("latency_ms")
+
+  // Retrieval quality metrics
+  scoreMin      Float?   @map("score_min")
+  scoreMax      Float?   @map("score_max")
+  scoreAvg      Float?   @map("score_avg")
+  rerankApplied Boolean  @default(false) @map("rerank_applied")
+  queryVariants Json?    @map("query_variants")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("query_logs")
+}
+
+model ConversationSession {
+  id        String                @id @default(cuid())
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+  messages  ConversationMessage[]
+
+  @@map("conversation_sessions")
+}
+
+model ConversationMessage {
+  id        String              @id @default(cuid())
+  sessionId String              @map("session_id")
+  role      String
+  content   String              @db.Text
+  createdAt DateTime            @default(now()) @map("created_at")
+  session   ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("conversation_messages")
+}
