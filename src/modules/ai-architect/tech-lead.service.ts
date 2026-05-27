@@ -6,7 +6,7 @@ import { safeParseLlmJson } from '../../common/utils/llm-json.util';
 import { sanitizeQueryForPrompt } from '../../common/utils/query-sanitizer.util';
 import { logPipelineStep } from '../../common/utils/logger.util';
 import { QueryResponse } from './ai-architect.service';
-import { RagDecisionOutput, Citation, OfficialSource } from '../../common/types/rag.types';
+import { RagDecisionOutput, Citation, OfficialSource, ModuleSpec } from '../../common/types/rag.types';
 
 const analysisSchema = z.object({
   complexity: z.enum(['simple', 'complex']),
@@ -258,16 +258,7 @@ Respondé SOLO con JSON:
       });
 
       // Merge ADR fields from sub-responses
-      const mergedStackDecisions: Record<string, string> = {};
-      const mergedModules: string[] = [];
-      const mergedNextSteps: string[] = [];
-      const mergedOpenQuestions: string[] = [];
-      for (const r of responses) {
-        Object.assign(mergedStackDecisions, r.stack_decisions ?? {});
-        mergedModules.push(...(r.modules ?? []));
-        mergedNextSteps.push(...(r.next_steps ?? []));
-        mergedOpenQuestions.push(...(r.open_questions ?? []));
-      }
+      const merged = this.mergeAdrFields(responses);
 
       return {
         citations: uniqueCitations,
@@ -276,10 +267,7 @@ Respondé SOLO con JSON:
         reasoning: result.reasoning,
         tradeoffs: uniqueTradeoffs,
         examples: uniqueExamples,
-        stack_decisions: mergedStackDecisions,
-        modules: [...new Set(mergedModules)],
-        next_steps: [...new Set(mergedNextSteps)],
-        open_questions: [...new Set(mergedOpenQuestions)],
+        ...merged,
       };
     } catch (error) {
       this.logger.warn(`Tech Lead synthesis failed: ${String(error)}`);
@@ -294,16 +282,7 @@ Respondé SOLO con JSON:
     tradeoffs: string[],
     examples: string[],
   ): RagDecisionOutput {
-    const mergedStackDecisions: Record<string, string> = {};
-    const mergedModules: string[] = [];
-    const mergedNextSteps: string[] = [];
-    const mergedOpenQuestions: string[] = [];
-    for (const r of responses) {
-      Object.assign(mergedStackDecisions, r.stack_decisions ?? {});
-      mergedModules.push(...(r.modules ?? []));
-      mergedNextSteps.push(...(r.next_steps ?? []));
-      mergedOpenQuestions.push(...(r.open_questions ?? []));
-    }
+    const merged = this.mergeAdrFields(responses);
     return {
       citations,
       official_sources: officialSources,
@@ -311,10 +290,70 @@ Respondé SOLO con JSON:
       reasoning: responses.map((r, i) => `[${i + 1}] ${r.reasoning}`).join(' | '),
       tradeoffs,
       examples,
+      ...merged,
+    };
+  }
+
+  private mergeAdrFields(responses: QueryResponse[]): Pick<RagDecisionOutput,
+    'stack_decisions' | 'modules' | 'next_steps' | 'open_questions' |
+    'context' | 'pydantic_schema' | 'langfuse_observability' |
+    'estructura_proyecto' | 'env_vars' | 'error_handling' | 'casos_de_prueba'
+  > {
+    const mergedStackDecisions: Record<string, string> = {};
+    const mergedModules: ModuleSpec[] = [];
+    const seenModuleArchivos = new Set<string>();
+    const mergedNextSteps: string[] = [];
+    const mergedOpenQuestions: string[] = [];
+    const mergedEnvVars: Record<string, string> = {};
+    const mergedErrorHandling: Record<string, string> = {};
+    const mergedDirEntries: string[] = [];
+    const mergedTestCases: { par: number; tipo: string; archivos: string[]; cambios_esperados: string[] }[] = [];
+
+    let context: string | undefined;
+    let pydanticSchema: RagDecisionOutput['pydantic_schema'];
+    let langfuseObs: RagDecisionOutput['langfuse_observability'];
+
+    for (const r of responses) {
+      Object.assign(mergedStackDecisions, r.stack_decisions ?? {});
+
+      for (const m of r.modules ?? []) {
+        if (!seenModuleArchivos.has(m.archivo)) {
+          seenModuleArchivos.add(m.archivo);
+          mergedModules.push(m);
+        }
+      }
+
+      mergedNextSteps.push(...(r.next_steps ?? []));
+      mergedOpenQuestions.push(...(r.open_questions ?? []));
+      Object.assign(mergedEnvVars, r.env_vars ?? {});
+      Object.assign(mergedErrorHandling, r.error_handling ?? {});
+
+      if (r.context && !context) context = r.context;
+      if (r.pydantic_schema && !pydanticSchema) pydanticSchema = r.pydantic_schema;
+      if (r.langfuse_observability && !langfuseObs) langfuseObs = r.langfuse_observability;
+
+      if (r.estructura_proyecto?.directorios) {
+        mergedDirEntries.push(...r.estructura_proyecto.directorios);
+      }
+      if (r.casos_de_prueba) {
+        mergedTestCases.push(...r.casos_de_prueba);
+      }
+    }
+
+    return {
       stack_decisions: mergedStackDecisions,
-      modules: [...new Set(mergedModules)],
+      modules: mergedModules,
       next_steps: [...new Set(mergedNextSteps)],
       open_questions: [...new Set(mergedOpenQuestions)],
+      ...(context ? { context } : {}),
+      ...(pydanticSchema ? { pydantic_schema: pydanticSchema } : {}),
+      ...(langfuseObs ? { langfuse_observability: langfuseObs } : {}),
+      ...(mergedDirEntries.length > 0
+        ? { estructura_proyecto: { directorios: [...new Set(mergedDirEntries)] } }
+        : {}),
+      ...(Object.keys(mergedEnvVars).length > 0 ? { env_vars: mergedEnvVars } : {}),
+      ...(Object.keys(mergedErrorHandling).length > 0 ? { error_handling: mergedErrorHandling } : {}),
+      ...(mergedTestCases.length > 0 ? { casos_de_prueba: mergedTestCases } : {}),
     };
   }
 

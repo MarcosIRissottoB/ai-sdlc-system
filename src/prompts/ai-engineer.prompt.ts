@@ -106,40 +106,76 @@ ${params.context}
 Respondé ÚNICAMENTE con un JSON con este formato exacto:
 {
   "citations": [
-    {
-      "source": "nombre o URL de la fuente",
-      "text": "cita textual exacta del fragmento"
-    }
+    { "source": "nombre o URL de la fuente", "text": "cita textual exacta del fragmento" }
   ],
   "official_sources": [
-    {
-      "source": "nombre de la fuente oficial",
-      "text": "cita textual de la documentación oficial",
-      "url": "https://..."
-    }
+    { "source": "nombre de la fuente oficial", "text": "cita textual de la documentación oficial", "url": "https://..." }
   ],
-  "decision": "...",
+  "decision": "decisión técnica clara y específica",
   "reasoning": "razonamiento detallado que justifica la respuesta",
-  "tradeoffs": [
-    "trade-off o riesgo 1",
-    "trade-off o riesgo 2"
-  ],
-  "examples": [
-    "ejemplo práctico de arquitectura o patrón aplicable — NO código inventado"
-  ],
+  "tradeoffs": ["trade-off o riesgo 1", "trade-off o riesgo 2"],
+  "examples": ["ejemplo práctico de arquitectura o patrón aplicable — NO código inventado"],
   "stack_decisions": {
     "LLM": "GPT-4o Vision — justificación",
     "Validación": "Pydantic v2 + Structured Outputs — justificación"
   },
   "modules": [
-    "módulo 1 — responsabilidad",
-    "módulo 2 — responsabilidad"
+    {
+      "archivo": "src/ruta/al/archivo.py",
+      "responsabilidad": "descripción clara de qué hace este módulo",
+      "inputs": "qué recibe (tipos y descripción)",
+      "outputs": "qué devuelve (tipos y descripción)",
+      "system_prompt_rol": "rol del agente si aplica (ej: 'Analista Senior de Contratos')",
+      "schema": "nombre del schema de validación si aplica"
+    }
   ],
-  "next_steps": [
-    "próximo paso concreto para implementar"
-  ],
-  "open_questions": [
-    "pregunta que queda abierta y requiere más investigación"
+  "next_steps": ["próximo paso concreto y ordenado para implementar"],
+  "open_questions": ["pregunta que queda abierta y requiere más investigación"],
+  "context": "resumen del contexto y propósito del proyecto (extraído de la query y el contexto del proyecto)",
+  "pydantic_schema": {
+    "model": "NombreDelModelo",
+    "fields": {
+      "campo_1": "Tipo — descripción breve",
+      "campo_2": "Tipo — descripción breve"
+    },
+    "validacion": "estrategia de validación (ej: model_validate() con try/except)",
+    "integracion_openai": "cómo se integra con structured outputs si aplica"
+  },
+  "langfuse_observability": {
+    "trace_root": "nombre-del-trace-raíz",
+    "spans": [
+      {
+        "name": "nombre_del_span",
+        "tipo": "generation | span",
+        "registra": ["input: descripción", "output: descripción", "tokens consumed", "latencia ms"]
+      }
+    ],
+    "jerarquia": "descripción de la relación padre-hijo entre trace y spans",
+    "integracion": "método de integración (ej: drop-in replacement, decorador @observe)"
+  },
+  "estructura_proyecto": {
+    "directorios": [
+      "src/main.py",
+      "src/modulo/archivo.py",
+      ".env.example",
+      "requirements.txt"
+    ]
+  },
+  "env_vars": {
+    "VARIABLE_1": "descripción o valor placeholder",
+    "VARIABLE_2": "descripción o valor placeholder"
+  },
+  "error_handling": {
+    "modulo_1": "estrategia de manejo de errores para este módulo",
+    "modulo_2": "estrategia de manejo de errores para este módulo"
+  },
+  "casos_de_prueba": [
+    {
+      "par": 1,
+      "tipo": "descripción del tipo de prueba",
+      "archivos": ["archivo_input_1", "archivo_input_2"],
+      "cambios_esperados": ["cambio esperado 1", "cambio esperado 2"]
+    }
   ]
 }
 
@@ -153,10 +189,20 @@ IMPORTANTE:
 - Si hay contradicciones, mostrarlas en "citations" con ambas fuentes
 - En "reasoning", fundamentá PRIMERO con fuentes oficiales y DESPUÉS complementá con material de curso
 
-CAMPOS ADR (Architecture Decision Record) — incluir cuando la query es sobre diseño de sistema:
-- "stack_decisions": decisiones de tecnología con justificación breve (ej: {"OCR": "GPT-4o Vision — soporta PDF directo"})
-- "modules": lista de módulos/componentes recomendados con su responsabilidad
-- "next_steps": pasos concretos para implementar la decisión
+CAMPOS ADR BASE — incluir SIEMPRE cuando la query es sobre diseño de sistema:
+- "stack_decisions": decisiones de tecnología con justificación breve
+- "modules": lista de módulos como OBJETOS con archivo, responsabilidad, inputs, outputs. Si el módulo es un agente con LLM, incluir "system_prompt_rol". Si define un schema de datos, incluir "schema"
+- "next_steps": pasos concretos y ORDENADOS para implementar la decisión
 - "open_questions": preguntas que quedan abiertas y requieren más investigación
-Si la query es una pregunta puntual (no de arquitectura), estos campos pueden omitirse.`;
+
+CAMPOS ADR ENRIQUECIDOS — incluir ÚNICAMENTE cuando la query solicita el diseño completo de un sistema:
+- "context": resumen ejecutivo del proyecto, su propósito y restricciones clave
+- "pydantic_schema": schema de validación del output con modelo, campos, estrategia de validación e integración con OpenAI structured outputs si aplica
+- "langfuse_observability": diseño de trazabilidad con trace raíz, spans hijos (cada uno con nombre, tipo y qué registra), jerarquía y método de integración. IMPORTANTE: incluir UN SPAN POR CADA OPERACIÓN que haga una llamada a un LLM o API externa — no solo los agentes, también parsing de imágenes, transformaciones con API, etc. Si el sistema parsea 2 imágenes, son 2 spans separados.
+- "estructura_proyecto": lista completa de archivos y directorios del proyecto
+- "env_vars": variables de entorno requeridas con valores placeholder
+- "error_handling": estrategia de manejo de errores POR MÓDULO — incluir errores específicos (FileNotFoundError, ValidationError, timeouts de API, rate limits). NO usar frases genéricas como "capturar excepciones generales".
+- "casos_de_prueba": EXTRAER los datos de prueba del contexto del proyecto o la query del usuario — nombres de archivos, cambios esperados, tipos de prueba. NUNCA inventar nombres de archivos ni cambios esperados. Si el usuario especificó pares de prueba con datos concretos, usarlos textualmente. Si no hay datos de prueba en el input, omitir el campo.
+
+Para preguntas puntuales (no de arquitectura), omitir TODOS los campos ADR.`;
 };

@@ -15,6 +15,42 @@ import { sanitizeChunkForPrompt } from '../../common/utils/prompt-sanitizer.util
 import { safeParseLlmJson } from '../../common/utils/llm-json.util';
 import { estimateTokens } from '../../common/utils/token-estimator.util';
 
+const moduleSpecSchema = z.object({
+  archivo: z.string(),
+  responsabilidad: z.string(),
+  inputs: z.string().nullish(),
+  outputs: z.string().nullish(),
+  system_prompt_rol: z.string().nullish(),
+  schema: z.string().nullish(),
+});
+
+const pydanticSchemaSpec = z.object({
+  model: z.string(),
+  fields: z.record(z.string(), z.string()),
+  validacion: z.string(),
+  integracion_openai: z.string().nullish(),
+});
+
+const langfuseSpanSpec = z.object({
+  name: z.string(),
+  tipo: z.string(),
+  registra: z.array(z.string()),
+});
+
+const langfuseObservabilitySpec = z.object({
+  trace_root: z.string(),
+  spans: z.array(langfuseSpanSpec),
+  jerarquia: z.string(),
+  integracion: z.string(),
+});
+
+const testCaseSchema = z.object({
+  par: z.number(),
+  tipo: z.string(),
+  archivos: z.array(z.string()),
+  cambios_esperados: z.array(z.string()),
+});
+
 const ragOutputSchema = z.object({
   citations: z.array(z.object({ source: z.string(), text: z.string() })).default([]),
   official_sources: z.array(z.object({ source: z.string(), text: z.string(), url: z.string().default('') })).default([]),
@@ -23,9 +59,16 @@ const ragOutputSchema = z.object({
   tradeoffs: z.array(z.string()).default([]),
   examples: z.array(z.string()).default([]),
   stack_decisions: z.record(z.string(), z.string()).default({}),
-  modules: z.array(z.string()).default([]),
+  modules: z.array(moduleSpecSchema).default([]),
   next_steps: z.array(z.string()).default([]),
   open_questions: z.array(z.string()).default([]),
+  context: z.string().nullish(),
+  pydantic_schema: pydanticSchemaSpec.nullish(),
+  langfuse_observability: langfuseObservabilitySpec.nullish(),
+  estructura_proyecto: z.object({ directorios: z.array(z.string()) }).nullish(),
+  env_vars: z.record(z.string(), z.string()).nullish(),
+  error_handling: z.record(z.string(), z.string()).nullish(),
+  casos_de_prueba: z.array(testCaseSchema).nullish(),
 });
 
 @Injectable()

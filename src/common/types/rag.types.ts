@@ -27,6 +27,42 @@ export interface OfficialSource {
   url: string;
 }
 
+export interface ModuleSpec {
+  archivo: string;
+  responsabilidad: string;
+  inputs?: string | null;
+  outputs?: string | null;
+  system_prompt_rol?: string | null;
+  schema?: string | null;
+}
+
+export interface PydanticSchemaSpec {
+  model: string;
+  fields: Record<string, string>;
+  validacion: string;
+  integracion_openai?: string | null;
+}
+
+export interface LangfuseSpanSpec {
+  name: string;
+  tipo: string;
+  registra: string[];
+}
+
+export interface LangfuseObservabilitySpec {
+  trace_root: string;
+  spans: LangfuseSpanSpec[];
+  jerarquia: string;
+  integracion: string;
+}
+
+export interface TestCase {
+  par: number;
+  tipo: string;
+  archivos: string[];
+  cambios_esperados: string[];
+}
+
 export interface RagDecisionOutput {
   citations: Citation[];
   official_sources: OfficialSource[];
@@ -36,9 +72,17 @@ export interface RagDecisionOutput {
   examples: string[];
   /** Campos ADR — presentes cuando la query es de arquitectura */
   stack_decisions: Record<string, string>;
-  modules: string[];
+  modules: ModuleSpec[];
   next_steps: string[];
   open_questions: string[];
+  /** Campos ADR enriquecidos — presentes solo en queries de diseño de sistema */
+  context?: string | null;
+  pydantic_schema?: PydanticSchemaSpec | null;
+  langfuse_observability?: LangfuseObservabilitySpec | null;
+  estructura_proyecto?: { directorios: string[] } | null;
+  env_vars?: Record<string, string> | null;
+  error_handling?: Record<string, string> | null;
+  casos_de_prueba?: TestCase[] | null;
   /** Presente solo cuando el guardrail QA activó el fallback. Las citas son del retrieval pero la decision no pudo verificarse. */
   isFallback?: boolean;
 }

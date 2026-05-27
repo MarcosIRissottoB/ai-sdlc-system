@@ -50,11 +50,26 @@ async function bootstrap() {
     },
   );
 
-  const port = process.env['PORT'] ?? 3000;
-  await app.listen(port, '0.0.0.0');
+  const basePort = Number(process.env['PORT'] ?? 3000);
+  const maxRetries = 10;
 
-  logger.log(`Application running on: http://localhost:${port}`);
-  logger.log(`Swagger docs: http://localhost:${port}/docs`);
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const port = basePort + attempt;
+    try {
+      await app.listen(port, '0.0.0.0');
+      logger.log(`Application running on: http://localhost:${port}`);
+      logger.log(`Swagger docs: http://localhost:${port}/docs`);
+      return;
+    } catch (err: unknown) {
+      const isPortBusy =
+        err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'EADDRINUSE';
+      if (isPortBusy && attempt < maxRetries - 1) {
+        logger.warn(`Port ${port} busy, trying ${port + 1}...`);
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 bootstrap().catch((err) => {

@@ -25,6 +25,9 @@ export interface QueryRequest {
 }
 
 export interface QueryResponse extends RagDecisionOutput {
+  project?: string;
+  version?: string;
+  date?: string;
   metadata: {
     retrievedChunks: number;
     contextGroups: number;
@@ -154,8 +157,17 @@ export class AiArchitectService {
       coverageScore,
     });
 
+    const isArchitectureQuery = synthesized.modules.length > 0 || Object.keys(synthesized.stack_decisions).length > 0;
+
     return {
       ...synthesized,
+      ...(isArchitectureQuery
+        ? {
+            project: this.extractProjectName(request.query, request.context),
+            version: '1.0',
+            date: new Date().toISOString().split('T')[0],
+          }
+        : {}),
       metadata: {
         retrievedChunks: allChunks,
         contextGroups: allGroups,
@@ -263,8 +275,17 @@ export class AiArchitectService {
       rerankApplied: request.retrievalOptions?.useReranking ?? true,
     });
 
+    const isArchitectureQuery = output.modules.length > 0 || Object.keys(output.stack_decisions).length > 0;
+
     return {
       ...output,
+      ...(isArchitectureQuery
+        ? {
+            project: this.extractProjectName(request.query, request.context),
+            version: '1.0',
+            date: new Date().toISOString().split('T')[0],
+          }
+        : {}),
       metadata: {
         retrievedChunks: chunks.length,
         contextGroups: context.groups.length,
@@ -281,6 +302,12 @@ export class AiArchitectService {
         unverifiedCitations: unverified.length,
       },
     };
+  }
+
+  private extractProjectName(query: string, context?: string): string {
+    const text = context ?? query;
+    const match = text.match(/(?:proyecto|project|sistema|system)\s+(?:para\s+)?["']?([A-Z][A-Za-z0-9\s-]+)/i);
+    return match ? match[1].trim() : 'Sin nombre';
   }
 
   /**
